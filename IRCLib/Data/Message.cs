@@ -55,11 +55,7 @@ namespace IRCLib.Data {
         public Tag GetTag(string name) {
             if(Tags == null || Tags.Length == 0) return null;
 
-            try {
-                return Tags.First(t => t.Name == name);
-            } catch(Exception) {
-                return null;
-            }
+            return Tags.FirstOrDefault(t => t.Name == name);
         }
 
         public override string ToString() {
