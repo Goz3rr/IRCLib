@@ -52,6 +52,16 @@ namespace IRCLib.Data {
             } else Command = message;
         }
 
+        public Tag GetTag(string name) {
+            if(Tags == null || Tags.Length == 0) return null;
+
+            try {
+                return Tags.First(t => t.Name == name);
+            } catch(Exception) {
+                return null;
+            }
+        }
+
         public override string ToString() {
             return RawData;
         }
