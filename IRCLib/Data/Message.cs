@@ -3,12 +3,33 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace IRCLib.Data {
+    /// <summary>
+    ///     Processed IRC message
+    /// </summary>
     public class Message {
+        /// <summary>
+        ///     Raw content of message
+        /// </summary>
         public string RawData { get; private set; }
 
+        /// <summary>
+        ///     Source of message
+        /// </summary>
         public Source Source { get; private set; }
+
+        /// <summary>
+        ///     Command that is matched against handlers
+        /// </summary>
         public string Command { get; private set; }
+
+        /// <summary>
+        ///     Tags in message
+        /// </summary>
         public Tag[] Tags { get; private set; }
+
+        /// <summary>
+        ///     Parameters for command
+        /// </summary>
         public string[] Parameters { get; private set; }
 
         public Message(string message) {
@@ -52,6 +73,11 @@ namespace IRCLib.Data {
             } else Command = message;
         }
 
+        /// <summary>
+        ///     Get tag by name
+        /// </summary>
+        /// <param name="name">Tag to look for</param>
+        /// <returns>Tag or null if not found</returns>
         public Tag GetTag(string name) {
             if(Tags == null || Tags.Length == 0) return null;
 

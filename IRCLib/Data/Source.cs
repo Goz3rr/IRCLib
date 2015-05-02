@@ -1,4 +1,7 @@
 ﻿namespace IRCLib.Data {
+    /// <summary>
+    ///     Source of an IRC message
+    /// </summary>
     public class Source {
         public string Name { get; private set; }
         public string User { get; private set; }

@@ -8,14 +8,32 @@ using System.Text;
 using IRCLib.Data;
 
 namespace IRCLib {
+    /// <summary>
+    ///     IRC Client
+    /// </summary>
     public class Client : IDisposable {
         public delegate void MessageHandler(Client client, Message message);
 
         private readonly Dictionary<string, MessageHandler> handlers = new Dictionary<string, MessageHandler>();
 
+        /// <summary>
+        ///     Event invoked when a raw message is sent
+        /// </summary>
         public event EventHandler<RawMessageEventArgs> RawMessageSent;
+
+        /// <summary>
+        ///     Event invoked when a raw message is received
+        /// </summary>
         public event EventHandler<RawMessageEventArgs> RawMessageReceived;
+
+        /// <summary>
+        ///     Event invoked after a raw message has been processed
+        /// </summary>
         public event EventHandler<ProcessedMessageEventArgs> MessageReceived;
+
+        /// <summary>
+        ///     Event invoked once client is succesfully connected
+        /// </summary>
         public event EventHandler<EventArgs> Connected;
 
         private byte[] ReadBuffer { get; set; }
@@ -25,6 +43,10 @@ namespace IRCLib {
         private int ServerPort { get; set; }
         private bool ServerSSL { get; set; }
 
+        /// <summary>
+        ///     Server address to connect to in format hostname:[port]
+        ///     Port defaults to 6667 if left out
+        /// </summary>
         public string ServerAddress {
             get { return ServerHostname + ":" + ServerPort; }
             set {
@@ -35,6 +57,9 @@ namespace IRCLib {
             }
         }
 
+        /// <summary>
+        ///     If the client is currently connected to a server
+        /// </summary>
         public bool IsConnected {
             get { return Connection != null && Connection.Client != null && Connection.Connected; }
         }
@@ -65,6 +90,9 @@ namespace IRCLib {
             if(IsConnected) Quit();
         }
 
+        /// <summary>
+        ///     Connects to server
+        /// </summary>
         public void Connect() {
             /*
             if(Socket != null && Socket.Connected) throw new InvalidOperationException("Already connected to a server");
@@ -77,6 +105,10 @@ namespace IRCLib {
             Connection.BeginConnect(ServerHostname, ServerPort, ConnectComplete, null);
         }
 
+        /// <summary>
+        ///     Disconnect from server
+        /// </summary>
+        /// <param name="reason">Optional reason to send to server</param>
         public void Quit(string reason = null) {
             if(reason == null) SendRaw("QUIT");
             else SendRaw("QUIT :{0}", reason);
@@ -86,19 +118,33 @@ namespace IRCLib {
             Connection.Close();
         }
 
+        /// <summary>
+        ///     Send a raw message to server
+        /// </summary>
+        /// <param name="message">Message to send</param>
         public void SendRaw(string message) {
-            byte[] data = Encoding.UTF8.GetBytes(message + "\r\n");
+            byte[] data = Encoding.UTF8.GetBytes(message + (message.EndsWith("\r\n") ? "" : "\r\n"));
             //Socket.BeginSend(data, 0, data.Length, SocketFlags.None, MessageSent, message);
             Connection.Client.BeginSend(data, 0, data.Length, SocketFlags.None, MessageSent, message);
 
             if(RawMessageSent != null) RawMessageSent.Invoke(this, new RawMessageEventArgs(message));
         }
 
+        /// <summary>
+        ///     Send a raw formatted message to server
+        /// </summary>
+        /// <param name="format"></param>
+        /// <param name="args"></param>
         public void SendRaw(string format, params object[] args) {
             string message = String.Format(format, args);
             SendRaw(message);
         }
 
+        /// <summary>
+        ///     Set the handler for a command
+        /// </summary>
+        /// <param name="message">Command to listen for, case insensitive</param>
+        /// <param name="handler">Handler to call when command is received</param>
         public void SetHandler(string message, MessageHandler handler) {
             handlers[message.ToUpper()] = handler;
         }
@@ -116,11 +162,11 @@ namespace IRCLib {
             }
         }
 
-        public void RegisterDefaultHandlers() {
+        private void RegisterDefaultHandlers() {
             RegisterHandlersForType(typeof(Handlers));
         }
 
-        public void RegisterHandlers() {
+        private void RegisterHandlers() {
             foreach(Type type in Assembly.GetEntryAssembly().GetTypes()) {
                 RegisterHandlersForType(type);
             }
