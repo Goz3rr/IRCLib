@@ -1,11 +1,11 @@
 # IRCLib
 Barebones .NET IRC library
-It'll parse messages into a more manageable format (Source, Command, Tags, Parameters) and handle all connection stuff
-Also has an easy way to add commands via a [Handler] attribute
+
+It'll parse messages into a more manageable format (Source, Command, Tags, Parameters) and handle all connection stuff abd also has an easy way to add commands via a [Handler] attribute
 
 Works roughly like this:
 
-    var client = new IRCLib.Client("host:[port]", new IRCLib.User("Username"));
+    var client = new IRCLib.Client("host[:port]", new IRCLib.User("Username"));
 
     client.RawMessageSent += (sender, args) => Console.WriteLine(">> " + args.Message + "\n");
     client.RawMessageReceived += (sender, args) => Console.WriteLine("<< " + args.Message + "\n");
