@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Net.Security;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
@@ -39,9 +40,9 @@ namespace IRCLib {
         private byte[] ReadBuffer { get; set; }
         private int ReadBufferIndex { get; set; }
 
-        private string ServerHostname { get; set; }
-        private int ServerPort { get; set; }
-        private bool ServerSSL { get; set; }
+        public string ServerHostname { get; protected set; }
+        public int ServerPort { get; protected set; }
+        public bool ServerSSL { get; protected set; }
 
         /// <summary>
         ///     Server address to connect to in format hostname:[port]
@@ -50,6 +51,8 @@ namespace IRCLib {
         public string ServerAddress {
             get { return ServerHostname + ":" + ServerPort; }
             set {
+                if(Connection != null) throw new InvalidOperationException("Cannot change server after connecting");
+
                 string[] parts = value.Split(':');
                 if(parts.Length > 2 || parts.Length == 0) throw new FormatException("Format should be hostname:port");
                 ServerHostname = parts[0];
@@ -65,8 +68,8 @@ namespace IRCLib {
         }
 
         protected User User { get; set; }
-        //public Socket Socket { get; set; }
         protected TcpClient Connection { get; set; }
+        protected SslStream SslStream { get; set; }
 
         public Client(string address, User user, bool ssl = false) {
             if(address == null) throw new ArgumentNullException("address");
@@ -84,9 +87,6 @@ namespace IRCLib {
         }
 
         public void Dispose() {
-            //if(Socket.Connected) Quit();
-            //else Socket.Dispose();
-
             if(IsConnected) Quit();
         }
 
@@ -94,13 +94,8 @@ namespace IRCLib {
         ///     Connects to server
         /// </summary>
         public void Connect() {
-            /*
-            if(Socket != null && Socket.Connected) throw new InvalidOperationException("Already connected to a server");
-            Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            Socket.BeginConnect(ServerHostname, ServerPort, ConnectComplete, null);
-            */
-
             if(IsConnected) throw new InvalidOperationException("Already connected to a server");
+
             Connection = new TcpClient();
             Connection.BeginConnect(ServerHostname, ServerPort, ConnectComplete, null);
         }
@@ -113,7 +108,8 @@ namespace IRCLib {
             if(reason == null) SendRaw("QUIT");
             else SendRaw("QUIT :{0}", reason);
 
-            //Socket.Disconnect(false);
+            if(SslStream != null) SslStream.Close();
+
             Connection.Client.Disconnect(false);
             Connection.Close();
         }
@@ -124,7 +120,6 @@ namespace IRCLib {
         /// <param name="message">Message to send</param>
         public void SendRaw(string message) {
             byte[] data = Encoding.UTF8.GetBytes(message + (message.EndsWith("\r\n") ? "" : "\r\n"));
-            //Socket.BeginSend(data, 0, data.Length, SocketFlags.None, MessageSent, message);
             Connection.Client.BeginSend(data, 0, data.Length, SocketFlags.None, MessageSent, message);
 
             if(RawMessageSent != null) RawMessageSent.Invoke(this, new RawMessageEventArgs(message));
@@ -175,10 +170,13 @@ namespace IRCLib {
         private void ConnectComplete(IAsyncResult result) {
             if(Connection == null || Connection.Client == null) return;
 
+            if(ServerSSL) {
+                SslStream = new SslStream(Connection.GetStream());
+                SslStream.AuthenticateAsClient(ServerHostname);
+            }
+
             try {
-                //Socket.EndConnect(result);
                 Connection.EndConnect(result);
-                //Socket.BeginReceive(ReadBuffer, ReadBufferIndex, ReadBuffer.Length, SocketFlags.None, DataRecieved, null);
                 Connection.Client.BeginReceive(ReadBuffer, ReadBufferIndex, ReadBuffer.Length, SocketFlags.None, DataRecieved, null);
 
                 if(User != null) {
@@ -195,7 +193,6 @@ namespace IRCLib {
             if(!IsConnected || !Connection.Client.Connected) return;
 
             SocketError error;
-            //int length = Socket.EndReceive(result, out error) + ReadBufferIndex;
             int length = Connection.Client.EndReceive(result, out error) + ReadBufferIndex;
             if(error != SocketError.Success) {
                 Debug.WriteLine("ERROR: {0}", error);
@@ -225,7 +222,6 @@ namespace IRCLib {
             }
 
             try {
-                //Socket.BeginReceive(ReadBuffer, ReadBufferIndex, ReadBuffer.Length - ReadBufferIndex, SocketFlags.None, DataRecieved, null);
                 Connection.Client.BeginReceive(ReadBuffer, ReadBufferIndex, ReadBuffer.Length - ReadBufferIndex, SocketFlags.None, DataRecieved, null);
             } catch(SocketException e) {
                 if(e.SocketErrorCode != SocketError.NotConnected && e.SocketErrorCode != SocketError.Shutdown) throw;
@@ -236,7 +232,6 @@ namespace IRCLib {
             if(Connection == null || Connection.Client == null) return;
 
             SocketError error;
-            //Socket.EndSend(result, out error);
             Connection.Client.EndSend(result, out error);
             if(error != SocketError.Success) Debug.WriteLine("ERROR: {0}", error);
         }
