@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace IRCLib.Data {
     /// <summary>
@@ -25,7 +24,7 @@ namespace IRCLib.Data {
         /// <summary>
         ///     Tags in message
         /// </summary>
-        public Tag[] Tags { get; private set; }
+        public Dictionary<string, string> Tags { get; private set; }
 
         /// <summary>
         ///     Parameters for command
@@ -36,13 +35,19 @@ namespace IRCLib.Data {
             RawData = message;
 
             Parameters = new string[0];
-            Tags = new Tag[0];
+            Tags = new Dictionary<string, string>();
 
             if(message.StartsWith("@")) {
                 string rawTags = message.Substring(1, message.IndexOf(' '));
                 message = message.Substring(message.IndexOf(' ') + 1);
 
-                Tags = rawTags.Split(';').Select(Tag.FromString).ToArray();
+                foreach(string raw in rawTags.Split(';')) {
+                    if(!raw.Contains("=")) Tags[raw] = null;
+                    else {
+                        string[] split = raw.Split('=');
+                        Tags[split[0]] = split[1];
+                    }
+                }
             }
 
             if(message.StartsWith(":")) {
@@ -71,17 +76,6 @@ namespace IRCLib.Data {
                 }
                 Parameters = parameters.ToArray();
             } else Command = message;
-        }
-
-        /// <summary>
-        ///     Get tag by name
-        /// </summary>
-        /// <param name="name">Tag to look for</param>
-        /// <returns>Tag or null if not found</returns>
-        public Tag GetTag(string name) {
-            if(Tags == null || Tags.Length == 0) return null;
-
-            return Tags.FirstOrDefault(t => t.Name == name);
         }
 
         public override string ToString() {

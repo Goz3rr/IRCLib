@@ -41,7 +41,6 @@
   <ItemGroup>
     <Compile Include="Client.cs" />
     <Compile Include="Data\Source.cs" />
-    <Compile Include="Data\Tag.cs" />
     <Compile Include="Handlers.cs" />
     <Compile Include="Data\Message.cs" />
     <Compile Include="ProcessedMessageEventArgs.cs" />
