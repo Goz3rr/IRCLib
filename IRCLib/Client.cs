@@ -51,10 +51,14 @@ namespace IRCLib {
         public string ServerAddress {
             get { return ServerHostname + ":" + ServerPort; }
             set {
-                if(Connection != null) throw new InvalidOperationException("Cannot change server after connecting");
+                if(Connection != null) {
+                    throw new InvalidOperationException("Cannot change server after connecting");
+                }
 
                 string[] parts = value.Split(':');
-                if(parts.Length > 2 || parts.Length == 0) throw new FormatException("Format should be hostname:port");
+                if(parts.Length > 2 || parts.Length == 0) {
+                    throw new FormatException("Format should be hostname:port");
+                }
                 ServerHostname = parts[0];
                 ServerPort = parts.Length > 1 ? Int32.Parse(parts[1]) : 6667;
             }
@@ -72,8 +76,12 @@ namespace IRCLib {
         protected SslStream SslStream { get; set; }
 
         public Client(string address, User user, bool ssl = false) {
-            if(address == null) throw new ArgumentNullException("address");
-            if(user == null) throw new ArgumentNullException("user");
+            if(address == null) {
+                throw new ArgumentNullException("address");
+            }
+            if(user == null) {
+                throw new ArgumentNullException("user");
+            }
 
             ServerAddress = address;
             ServerSSL = ssl;
@@ -87,14 +95,18 @@ namespace IRCLib {
         }
 
         public void Dispose() {
-            if(IsConnected) Quit();
+            if(IsConnected) {
+                Quit();
+            }
         }
 
         /// <summary>
         ///     Connects to server
         /// </summary>
         public void Connect() {
-            if(IsConnected) throw new InvalidOperationException("Already connected to a server");
+            if(IsConnected) {
+                throw new InvalidOperationException("Already connected to a server");
+            }
 
             Connection = new TcpClient();
             Connection.BeginConnect(ServerHostname, ServerPort, ConnectComplete, null);
@@ -105,10 +117,15 @@ namespace IRCLib {
         /// </summary>
         /// <param name="reason">Optional reason to send to server</param>
         public void Quit(string reason = null) {
-            if(reason == null) SendRaw("QUIT");
-            else SendRaw("QUIT :{0}", reason);
+            if(reason == null) {
+                SendRaw("QUIT");
+            } else {
+                SendRaw("QUIT :{0}", reason);
+            }
 
-            if(SslStream != null) SslStream.Close();
+            if(SslStream != null) {
+                SslStream.Close();
+            }
 
             Connection.Client.Disconnect(false);
             Connection.Close();
@@ -122,7 +139,9 @@ namespace IRCLib {
             byte[] data = Encoding.UTF8.GetBytes(message + (message.EndsWith("\r\n") ? "" : "\r\n"));
             Connection.Client.BeginSend(data, 0, data.Length, SocketFlags.None, MessageSent, message);
 
-            if(RawMessageSent != null) RawMessageSent.Invoke(this, new RawMessageEventArgs(message));
+            if(RawMessageSent != null) {
+                RawMessageSent.Invoke(this, new RawMessageEventArgs(message));
+            }
         }
 
         /// <summary>
@@ -149,9 +168,13 @@ namespace IRCLib {
 
             foreach(MethodInfo method in methods) {
                 Handler token = Attribute.GetCustomAttribute(method, typeof(Handler), false) as Handler;
-                if(token == null) continue;
+                if(token == null) {
+                    continue;
+                }
                 MessageHandler func = Delegate.CreateDelegate(typeof(MessageHandler), method) as MessageHandler;
-                if(func == null) continue;
+                if(func == null) {
+                    continue;
+                }
 
                 SetHandler(token.Message, func);
             }
@@ -168,7 +191,9 @@ namespace IRCLib {
         }
 
         private void ConnectComplete(IAsyncResult result) {
-            if(Connection == null || Connection.Client == null) return;
+            if(Connection == null || Connection.Client == null) {
+                return;
+            }
 
             if(ServerSSL) {
                 SslStream = new SslStream(Connection.GetStream());
@@ -185,12 +210,16 @@ namespace IRCLib {
                     SendRaw("USER {0} 0 * :{1}", User.UserName, User.RealName);
                 }
 
-                if(Connected != null) Connected.Invoke(this, new EventArgs());
+                if(Connected != null) {
+                    Connected.Invoke(this, new EventArgs());
+                }
             } catch(SocketException) {}
         }
 
         private void DataRecieved(IAsyncResult result) {
-            if(!IsConnected || !Connection.Client.Connected) return;
+            if(!IsConnected || !Connection.Client.Connected) {
+                return;
+            }
 
             SocketError error;
             int length = Connection.Client.EndReceive(result, out error) + ReadBufferIndex;
@@ -209,13 +238,20 @@ namespace IRCLib {
                 messageLength++;
 
                 string rawMessage = Encoding.UTF8.GetString(ReadBuffer, 0, messageLength - 2);
-                if(RawMessageReceived != null) RawMessageReceived.Invoke(this, new RawMessageEventArgs(rawMessage));
+                if(RawMessageReceived != null) {
+                    RawMessageReceived.Invoke(this, new RawMessageEventArgs(rawMessage));
+                }
 
                 Message message = new Message(rawMessage);
-                if(handlers.ContainsKey(message.Command.ToUpper())) handlers[message.Command.ToUpper()](this, message);
-                else Debug.WriteLine("Missing handler for command {0} ({1})", message.Command.ToUpper(), message.RawData);
+                if(handlers.ContainsKey(message.Command.ToUpper())) {
+                    handlers[message.Command.ToUpper()](this, message);
+                } else {
+                    Debug.WriteLine("Missing handler for command {0} ({1})", message.Command.ToUpper(), message.RawData);
+                }
 
-                if(MessageReceived != null) MessageReceived.Invoke(this, new ProcessedMessageEventArgs(message));
+                if(MessageReceived != null) {
+                    MessageReceived.Invoke(this, new ProcessedMessageEventArgs(message));
+                }
 
                 Array.Copy(ReadBuffer, messageLength, ReadBuffer, 0, length - messageLength);
                 length -= messageLength;
@@ -224,16 +260,22 @@ namespace IRCLib {
             try {
                 Connection.Client.BeginReceive(ReadBuffer, ReadBufferIndex, ReadBuffer.Length - ReadBufferIndex, SocketFlags.None, DataRecieved, null);
             } catch(SocketException e) {
-                if(e.SocketErrorCode != SocketError.NotConnected && e.SocketErrorCode != SocketError.Shutdown) throw;
+                if(e.SocketErrorCode != SocketError.NotConnected && e.SocketErrorCode != SocketError.Shutdown) {
+                    throw;
+                }
             }
         }
 
         private void MessageSent(IAsyncResult result) {
-            if(Connection == null || Connection.Client == null) return;
+            if(Connection == null || Connection.Client == null) {
+                return;
+            }
 
             SocketError error;
             Connection.Client.EndSend(result, out error);
-            if(error != SocketError.Success) Debug.WriteLine("ERROR: {0}", error);
+            if(error != SocketError.Success) {
+                Debug.WriteLine("ERROR: {0}", error);
+            }
         }
     }
 }

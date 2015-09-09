@@ -42,8 +42,9 @@ namespace IRCLib.Data {
                 message = message.Substring(message.IndexOf(' ') + 1);
 
                 foreach(string raw in rawTags.Split(';')) {
-                    if(!raw.Contains("=")) Tags[raw] = null;
-                    else {
+                    if(!raw.Contains("=")) {
+                        Tags[raw] = null;
+                    } else {
                         string[] split = raw.Split('=');
                         Tags[split[0]] = split[1];
                     }
@@ -75,7 +76,9 @@ namespace IRCLib.Data {
                     message = message.Substring(message.IndexOf(' ') + 1);
                 }
                 Parameters = parameters.ToArray();
-            } else Command = message;
+            } else {
+                Command = message;
+            }
         }
 
         public override string ToString() {

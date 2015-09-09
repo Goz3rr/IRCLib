@@ -20,7 +20,9 @@
                 }
 
                 Host = split[1];
-            } else Host = raw;
+            } else {
+                Host = raw;
+            }
         }
 
         public override string ToString() {
@@ -28,12 +30,17 @@
 
             if(Name != null) {
                 result = Name;
-                if(User != null) result += "!" + User;
+                if(User != null) {
+                    result += "!" + User;
+                }
             }
 
             if(Host != null) {
-                if(result == "") result = Host;
-                else result += "@" + Host;
+                if(result == "") {
+                    result = Host;
+                } else {
+                    result += "@" + Host;
+                }
             }
 
             return result;
