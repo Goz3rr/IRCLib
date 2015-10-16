@@ -224,7 +224,7 @@ namespace IRCLib {
             SocketError error;
             int length = Connection.Client.EndReceive(result, out error) + ReadBufferIndex;
             if(error != SocketError.Success) {
-                Debug.WriteLine("ERROR: {0}", error);
+                Debug.WriteLine("ERROR: {0}", error.ToString());
                 return;
             }
 
@@ -246,7 +246,7 @@ namespace IRCLib {
                 if(handlers.ContainsKey(message.Command.ToUpper())) {
                     handlers[message.Command.ToUpper()](this, message);
                 } else {
-                    Debug.WriteLine("Missing handler for command {0} ({1})", message.Command.ToUpper(), message.RawData);
+                    Debug.WriteLine(String.Format("Missing handler for command {0} ({1})", message.Command.ToUpper(), message.RawData));
                 }
 
                 if(MessageReceived != null) {
@@ -274,7 +274,7 @@ namespace IRCLib {
             SocketError error;
             Connection.Client.EndSend(result, out error);
             if(error != SocketError.Success) {
-                Debug.WriteLine("ERROR: {0}", error);
+                Debug.WriteLine("ERROR: {0}", error.ToString());
             }
         }
     }
