@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Reflection;
@@ -15,7 +16,7 @@ namespace IRCLib {
     public class Client : IDisposable {
         public delegate void MessageHandler(Client client, Message message);
 
-        private readonly Dictionary<string, MessageHandler> handlers = new Dictionary<string, MessageHandler>();
+        private readonly Dictionary<string, MessageHandler> _handlers = new Dictionary<string, MessageHandler>();
 
         /// <summary>
         ///     Event invoked when a raw message is sent
@@ -36,6 +37,11 @@ namespace IRCLib {
         ///     Event invoked once client is succesfully connected
         /// </summary>
         public event EventHandler<EventArgs> Connected;
+
+        /// <summary>
+        ///     Event invoked when an error with the underlying connection occurs
+        /// </summary>
+        public event EventHandler<ErrorEventArgs> Error;
 
         private byte[] ReadBuffer { get; set; }
         private int ReadBufferIndex { get; set; }
@@ -59,6 +65,7 @@ namespace IRCLib {
                 if(parts.Length > 2 || parts.Length == 0) {
                     throw new FormatException("Format should be hostname:port");
                 }
+
                 ServerHostname = parts[0];
                 ServerPort = parts.Length > 1 ? Int32.Parse(parts[1]) : 6667;
             }
@@ -103,13 +110,40 @@ namespace IRCLib {
         /// <summary>
         ///     Connects to server
         /// </summary>
-        public void Connect() {
+        public bool Connect() {
             if(IsConnected) {
                 throw new InvalidOperationException("Already connected to a server");
             }
 
             Connection = new TcpClient();
-            Connection.BeginConnect(ServerHostname, ServerPort, ConnectComplete, null);
+            try {
+                Connection.Connect(ServerHostname, ServerPort);
+
+                if (ServerSSL) {
+                    SslStream = new SslStream(Connection.GetStream());
+                    SslStream.AuthenticateAsClient(ServerHostname);
+                }
+
+                Connection.Client.BeginReceive(ReadBuffer, ReadBufferIndex, ReadBuffer.Length, SocketFlags.None, DataRecieved, null);
+
+                if (User != null) {
+                    SendRaw("PASS {0}", User.Password);
+                    SendRaw("NICK {0}", User.NickName);
+                    SendRaw("USER {0} 0 * :{1}", User.UserName, User.RealName);
+                }
+
+                if (Connected != null) {
+                    Connected.Invoke(this, EventArgs.Empty);
+                }
+            } catch(SocketException e) {
+                if (Error != null) {
+                    Error.Invoke(this, new ErrorEventArgs(e));
+                }
+
+                return false;
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -160,7 +194,7 @@ namespace IRCLib {
         /// <param name="message">Command to listen for, case insensitive</param>
         /// <param name="handler">Handler to call when command is received</param>
         public void SetHandler(string message, MessageHandler handler) {
-            handlers[message.ToUpper()] = handler;
+            _handlers[message.ToUpper()] = handler;
         }
 
         private void RegisterHandlersForType(Type type) {
@@ -171,6 +205,7 @@ namespace IRCLib {
                 if(token == null) {
                     continue;
                 }
+
                 MessageHandler func = Delegate.CreateDelegate(typeof(MessageHandler), method) as MessageHandler;
                 if(func == null) {
                     continue;
@@ -188,32 +223,6 @@ namespace IRCLib {
             foreach(Type type in Assembly.GetEntryAssembly().GetTypes()) {
                 RegisterHandlersForType(type);
             }
-        }
-
-        private void ConnectComplete(IAsyncResult result) {
-            if(Connection == null || Connection.Client == null) {
-                return;
-            }
-
-            if(ServerSSL) {
-                SslStream = new SslStream(Connection.GetStream());
-                SslStream.AuthenticateAsClient(ServerHostname);
-            }
-
-            try {
-                Connection.EndConnect(result);
-                Connection.Client.BeginReceive(ReadBuffer, ReadBufferIndex, ReadBuffer.Length, SocketFlags.None, DataRecieved, null);
-
-                if(User != null) {
-                    SendRaw("PASS {0}", User.Password);
-                    SendRaw("NICK {0}", User.NickName);
-                    SendRaw("USER {0} 0 * :{1}", User.UserName, User.RealName);
-                }
-
-                if(Connected != null) {
-                    Connected.Invoke(this, new EventArgs());
-                }
-            } catch(SocketException) {}
         }
 
         private void DataRecieved(IAsyncResult result) {
@@ -243,8 +252,8 @@ namespace IRCLib {
                 }
 
                 Message message = new Message(rawMessage);
-                if(handlers.ContainsKey(message.Command.ToUpper())) {
-                    handlers[message.Command.ToUpper()](this, message);
+                if(_handlers.ContainsKey(message.Command.ToUpper())) {
+                    _handlers[message.Command.ToUpper()](this, message);
                 } else {
                     Debug.WriteLine(String.Format("Missing handler for command {0} ({1})", message.Command.ToUpper(), message.RawData));
                 }
@@ -261,6 +270,10 @@ namespace IRCLib {
                 Connection.Client.BeginReceive(ReadBuffer, ReadBufferIndex, ReadBuffer.Length - ReadBufferIndex, SocketFlags.None, DataRecieved, null);
             } catch(SocketException e) {
                 if(e.SocketErrorCode != SocketError.NotConnected && e.SocketErrorCode != SocketError.Shutdown) {
+                    if(Error != null) {
+                        Error.Invoke(this, new ErrorEventArgs(e));    
+                    }
+
                     throw;
                 }
             }
