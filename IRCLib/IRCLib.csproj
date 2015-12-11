@@ -40,6 +40,7 @@
     <Compile Include="Data\Source.cs" />
     <Compile Include="Handlers.cs" />
     <Compile Include="Data\Message.cs" />
+    <Compile Include="NicknameInUseException.cs" />
     <Compile Include="ProcessedMessageEventArgs.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RawMessageEventArgs.cs" />

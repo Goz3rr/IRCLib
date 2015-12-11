@@ -43,8 +43,9 @@ namespace IRCLib {
         /// </summary>
         public event EventHandler<ErrorEventArgs> Error;
 
-        private byte[] ReadBuffer { get; set; }
-        private int ReadBufferIndex { get; set; }
+        private readonly byte[] _readBuffer;
+        private int _readBufferIndex;
+        private int _usernameTries;
 
         public string ServerHostname { get; protected set; }
         public int ServerPort { get; protected set; }
@@ -94,8 +95,8 @@ namespace IRCLib {
             ServerSSL = ssl;
             User = user;
 
-            ReadBuffer = new byte[1024];
-            ReadBufferIndex = 0;
+            _readBuffer = new byte[1024];
+            _readBufferIndex = 0;
 
             RegisterDefaultHandlers();
             RegisterHandlers();
@@ -124,7 +125,7 @@ namespace IRCLib {
                     SslStream.AuthenticateAsClient(ServerHostname);
                 }
 
-                Connection.Client.BeginReceive(ReadBuffer, ReadBufferIndex, ReadBuffer.Length, SocketFlags.None, DataRecieved, null);
+                Connection.Client.BeginReceive(_readBuffer, _readBufferIndex, _readBuffer.Length, SocketFlags.None, DataRecieved, null);
 
                 if (User != null) {
                     SendRaw("PASS {0}", User.Password);
@@ -217,8 +218,25 @@ namespace IRCLib {
 
         private void RegisterDefaultHandlers() {
             RegisterHandlersForType(typeof(Handlers));
+            SetHandler("433", RetryNickname);
         }
 
+        private void RetryNickname(Client client, Message message) {
+            if(_usernameTries > 5) {
+                if(Error != null) {
+                    Error.Invoke(this, new ErrorEventArgs(new NicknameInUseException(_usernameTries, User.NickName)));
+                }
+                return;
+            }
+
+            _usernameTries++;
+            if(_usernameTries < 4) {
+                SendRaw("NICK {0}-{1}", User.NickName, _usernameTries);
+            } else {
+                SendRaw("NICK {0}-{1}", User.NickName.Substring(0, 7), _usernameTries - 3);
+            }
+        }
+        
         private void RegisterHandlers() {
             foreach(Type type in Assembly.GetEntryAssembly().GetTypes()) {
                 RegisterHandlersForType(type);
@@ -231,22 +249,22 @@ namespace IRCLib {
             }
 
             SocketError error;
-            int length = Connection.Client.EndReceive(result, out error) + ReadBufferIndex;
+            int length = Connection.Client.EndReceive(result, out error) + _readBufferIndex;
             if(error != SocketError.Success) {
                 Debug.WriteLine("ERROR: {0}", error.ToString());
                 return;
             }
 
-            ReadBufferIndex = 0;
+            _readBufferIndex = 0;
             while(length > 0) {
-                int messageLength = Array.IndexOf(ReadBuffer, (byte)'\n', 0, length);
+                int messageLength = Array.IndexOf(_readBuffer, (byte)'\n', 0, length);
                 if(messageLength == -1) {
-                    ReadBufferIndex = length;
+                    _readBufferIndex = length;
                     break;
                 }
                 messageLength++;
 
-                string rawMessage = Encoding.UTF8.GetString(ReadBuffer, 0, messageLength - 2);
+                string rawMessage = Encoding.UTF8.GetString(_readBuffer, 0, messageLength - 2);
                 if(RawMessageReceived != null) {
                     RawMessageReceived.Invoke(this, new RawMessageEventArgs(rawMessage));
                 }
@@ -262,12 +280,12 @@ namespace IRCLib {
                     MessageReceived.Invoke(this, new ProcessedMessageEventArgs(message));
                 }
 
-                Array.Copy(ReadBuffer, messageLength, ReadBuffer, 0, length - messageLength);
+                Array.Copy(_readBuffer, messageLength, _readBuffer, 0, length - messageLength);
                 length -= messageLength;
             }
 
             try {
-                Connection.Client.BeginReceive(ReadBuffer, ReadBufferIndex, ReadBuffer.Length - ReadBufferIndex, SocketFlags.None, DataRecieved, null);
+                Connection.Client.BeginReceive(_readBuffer, _readBufferIndex, _readBuffer.Length - _readBufferIndex, SocketFlags.None, DataRecieved, null);
             } catch(SocketException e) {
                 if(e.SocketErrorCode != SocketError.NotConnected && e.SocketErrorCode != SocketError.Shutdown) {
                     if(Error != null) {
