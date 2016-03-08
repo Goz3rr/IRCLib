@@ -6,12 +6,12 @@ It'll parse messages into a more manageable format (Source, Command, Tags, Param
 Works roughly like this:
 
 ```csharp
-    var client = new IRCLib.Client("host[:port]", new IRCLib.User("Username"));
+var client = new IRCLib.Client("host[:port]", new IRCLib.User("Username"));
 
-    client.RawMessageSent += (sender, args) => Console.WriteLine(">> " + args.Message + "\n");
-    client.RawMessageReceived += (sender, args) => Console.WriteLine("<< " + args.Message + "\n");
+client.RawMessageSent += (sender, args) => Console.WriteLine(">> " + args.Message + "\n");
+client.RawMessageReceived += (sender, args) => Console.WriteLine("<< " + args.Message + "\n");
 
-    client.Connect();
+client.Connect();
 
-    client.SendRaw("JOIN #channel");
+client.SendRaw("JOIN #channel");
 ```
