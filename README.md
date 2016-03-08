@@ -5,6 +5,7 @@ It'll parse messages into a more manageable format (Source, Command, Tags, Param
 
 Works roughly like this:
 
+```csharp
     var client = new IRCLib.Client("host[:port]", new IRCLib.User("Username"));
 
     client.RawMessageSent += (sender, args) => Console.WriteLine(">> " + args.Message + "\n");
@@ -13,3 +14,4 @@ Works roughly like this:
     client.Connect();
 
     client.SendRaw("JOIN #channel");
+```
